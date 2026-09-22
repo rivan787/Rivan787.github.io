@@ -6,12 +6,11 @@
 <title>Profil DKV — Portofolio</title>
 
 <style>
-*{
-  box-sizing:border-box;
-}
+*{box-sizing:border-box}
 
 html{
   scroll-behavior:smooth;
+  scroll-padding-top:75px;
 }
 
 body{
@@ -114,11 +113,12 @@ h2{
   padding:0;
 }
 
-.portfolio-card img{
+.portfolio-media{
   width:100%;
-  height:190px;
+  max-height:300px;
   object-fit:cover;
   background:#25252b;
+  display:block;
 }
 
 .portfolio-info{
@@ -192,7 +192,6 @@ footer{
 
 <body>
 
-<!-- NAVIGASI -->
 <nav>
   <a href="#tentang">Tentang</a>
   <a href="#keahlian">Keahlian</a>
@@ -200,8 +199,6 @@ footer{
   <a href="#kontak">Kontak</a>
 </nav>
 
-
-<!-- PROFIL -->
 <header class="hero">
 
   <img
@@ -237,7 +234,6 @@ footer{
 <main class="wrap">
 
 
-<!-- TENTANG SAYA -->
 <section id="tentang">
 
   <h2>Tentang Saya</h2>
@@ -283,7 +279,6 @@ footer{
 </section>
 
 
-<!-- KEAHLIAN -->
 <section id="keahlian">
 
   <h2>Keahlian DKV</h2>
@@ -323,7 +318,6 @@ footer{
 </section>
 
 
-<!-- PORTOFOLIO -->
 <section id="portofolio">
 
   <h2>Portofolio Saya</h2>
@@ -348,7 +342,6 @@ footer{
 </section>
 
 
-<!-- KONTAK -->
 <section id="kontak">
 
   <h2>Kontak</h2>
@@ -356,6 +349,7 @@ footer{
   <div class="grid">
 
     <div class="card">
+
       <h3>📱 Instagram</h3>
 
       <p
@@ -372,6 +366,7 @@ footer{
       >
         Kunjungi Instagram
       </a>
+
     </div>
 
 
@@ -424,8 +419,8 @@ footer{
 </main>
 
 
-<!-- FOOTER -->
 <footer>
+
   © 2026
 
   <span contenteditable="true">
@@ -433,32 +428,38 @@ footer{
   </span>
 
   — Profil DKV
+
 </footer>
 
 
-<!-- MODAL TAMBAH PROJECT -->
 <div id="modal" class="modal">
 
   <div class="box">
 
     <h2>Tambah Project</h2>
 
-    <label>Foto karya</label>
+    <label>
+      Foto atau Video karya
+    </label>
 
     <input
-      id="projectImage"
+      id="projectMedia"
       type="file"
-      accept="image/*"
+      accept="image/*,video/*"
     >
 
-    <label>Nama project</label>
+    <label>
+      Nama project
+    </label>
 
     <input
       id="projectTitle"
       placeholder="Contoh: Poster Hari Kemerdekaan"
     >
 
-    <label>Deskripsi</label>
+    <label>
+      Deskripsi
+    </label>
 
     <textarea
       id="projectDesc"
@@ -493,7 +494,167 @@ const empty =
   document.getElementById("empty");
 
 
-/* BUKA MODAL */
+/* =========================
+   DATABASE
+========================= */
+
+const DB_NAME = "DKV_Portfolio_DB";
+const STORE_NAME = "media";
+
+let db;
+
+
+/* BUKA DATABASE */
+
+function openDB(){
+
+  return new Promise((resolve,reject)=>{
+
+    const request =
+      indexedDB.open(DB_NAME,1);
+
+    request.onupgradeneeded =
+      function(){
+
+        const database =
+          request.result;
+
+        if(
+          !database.objectStoreNames
+            .contains(STORE_NAME)
+        ){
+
+          database.createObjectStore(
+            STORE_NAME
+          );
+
+        }
+
+      };
+
+    request.onsuccess =
+      function(){
+
+        db =
+          request.result;
+
+        resolve(db);
+
+      };
+
+    request.onerror =
+      function(){
+
+        reject(request.error);
+
+      };
+
+  });
+
+}
+
+
+/* SIMPAN FILE */
+
+function saveFile(id,file){
+
+  return new Promise((resolve,reject)=>{
+
+    const transaction =
+      db.transaction(
+        STORE_NAME,
+        "readwrite"
+      );
+
+    transaction
+      .objectStore(STORE_NAME)
+      .put(file,id);
+
+    transaction.oncomplete =
+      resolve;
+
+    transaction.onerror =
+      function(){
+
+        reject(transaction.error);
+
+      };
+
+  });
+
+}
+
+
+/* AMBIL FILE */
+
+function getFile(id){
+
+  return new Promise((resolve,reject)=>{
+
+    const transaction =
+      db.transaction(
+        STORE_NAME,
+        "readonly"
+      );
+
+    const request =
+      transaction
+        .objectStore(STORE_NAME)
+        .get(id);
+
+    request.onsuccess =
+      function(){
+
+        resolve(request.result);
+
+      };
+
+    request.onerror =
+      function(){
+
+        reject(request.error);
+
+      };
+
+  });
+
+}
+
+
+/* HAPUS FILE */
+
+function deleteFile(id){
+
+  return new Promise((resolve,reject)=>{
+
+    const transaction =
+      db.transaction(
+        STORE_NAME,
+        "readwrite"
+      );
+
+    transaction
+      .objectStore(STORE_NAME)
+      .delete(id);
+
+    transaction.oncomplete =
+      resolve;
+
+    transaction.onerror =
+      function(){
+
+        reject(transaction.error);
+
+      };
+
+  });
+
+}
+
+
+/* =========================
+   MODAL
+========================= */
 
 function openModal(){
 
@@ -504,8 +665,6 @@ function openModal(){
 }
 
 
-/* TUTUP MODAL */
-
 function closeModal(){
 
   document
@@ -515,13 +674,15 @@ function closeModal(){
 }
 
 
-/* TAMBAH PROJECT */
+/* =========================
+   TAMBAH PROJECT
+========================= */
 
-function addProject(){
+async function addProject(){
 
   const file =
     document
-      .getElementById("projectImage")
+      .getElementById("projectMedia")
       .files[0];
 
   const title =
@@ -539,100 +700,75 @@ function addProject(){
 
   if(!title){
 
-    alert("Isi nama project dulu.");
+    alert(
+      "Isi nama project dulu."
+    );
 
     return;
 
   }
 
 
-  const card =
-    document.createElement("article");
+  if(!file){
 
-  card.className =
-    "card portfolio-card";
+    alert(
+      "Pilih foto atau video karya."
+    );
 
-
-  const image =
-    document.createElement("img");
-
-  image.alt = title;
-
-
-  if(file){
-
-    image.src =
-      URL.createObjectURL(file);
-
-  }else{
-
-    image.style.display =
-      "none";
+    return;
 
   }
 
 
-  const info =
-    document.createElement("div");
-
-  info.className =
-    "portfolio-info";
-
-
-  const heading =
-    document.createElement("h3");
-
-  heading.textContent =
-    title;
+  const id =
+    "project_" +
+    Date.now() +
+    "_" +
+    Math.random()
+      .toString(36)
+      .slice(2);
 
 
-  const desc =
-    document.createElement("p");
-
-  desc.className =
-    "muted";
-
-  desc.textContent =
-    description || "Project DKV";
+  await saveFile(id,file);
 
 
-  const deleteButton =
-    document.createElement("button");
-
-  deleteButton.className =
-    "delete";
-
-  deleteButton.textContent =
-    "🗑 Hapus";
+  const saved =
+    JSON.parse(
+      localStorage.getItem(
+        "dkvProjects"
+      ) || "[]"
+    );
 
 
-  deleteButton.onclick =
-    function(){
+  saved.push({
 
-      card.remove();
+    id:id,
 
-      updateEmpty();
+    title:title,
 
-    };
+    description:description,
 
+    type:file.type,
 
-  info.appendChild(heading);
-  info.appendChild(desc);
-  info.appendChild(deleteButton);
+    name:file.name
 
-  card.appendChild(image);
-  card.appendChild(info);
-
-  projects.appendChild(card);
+  });
 
 
-  updateEmpty();
+  localStorage.setItem(
+    "dkvProjects",
+    JSON.stringify(saved)
+  );
+
+
+  await renderProjects();
+
 
   closeModal();
 
 
   document
-    .getElementById("projectImage")
+    .getElementById("projectMedia")
     .value = "";
 
   document
@@ -646,51 +782,428 @@ function addProject(){
 }
 
 
-/* CEK PROJECT */
+/* =========================
+   TAMPILKAN PROJECT
+========================= */
+
+async function renderProjects(){
+
+  projects.innerHTML = "";
+
+
+  const saved =
+    JSON.parse(
+      localStorage.getItem(
+        "dkvProjects"
+      ) || "[]"
+    );
+
+
+  for(
+    const item of saved
+  ){
+
+    const file =
+      await getFile(item.id);
+
+
+    if(!file){
+
+      continue;
+
+    }
+
+
+    const card =
+      document.createElement(
+        "article"
+      );
+
+    card.className =
+      "card portfolio-card";
+
+
+    let media;
+
+
+    if(
+      item.type
+        .startsWith("video/")
+    ){
+
+      media =
+        document.createElement(
+          "video"
+        );
+
+      media.controls = true;
+
+      media.playsInline = true;
+
+    }else{
+
+      media =
+        document.createElement(
+          "img"
+        );
+
+      media.alt =
+        item.title;
+
+    }
+
+
+    media.className =
+      "portfolio-media";
+
+
+    const objectURL =
+      URL.createObjectURL(
+        file
+      );
+
+
+    media.src =
+      objectURL;
+
+
+    const info =
+      document.createElement(
+        "div"
+      );
+
+    info.className =
+      "portfolio-info";
+
+
+    const heading =
+      document.createElement(
+        "h3"
+      );
+
+    heading.textContent =
+      item.title;
+
+
+    const desc =
+      document.createElement(
+        "p"
+      );
+
+    desc.className =
+      "muted";
+
+    desc.textContent =
+      item.description ||
+      "Project DKV";
+
+
+    const deleteButton =
+      document.createElement(
+        "button"
+      );
+
+    deleteButton.className =
+      "delete";
+
+    deleteButton.textContent =
+      "🗑 Hapus";
+
+
+    deleteButton.onclick =
+      async function(){
+
+        URL.revokeObjectURL(
+          objectURL
+        );
+
+
+        await deleteFile(
+          item.id
+        );
+
+
+        const updated =
+          JSON.parse(
+            localStorage.getItem(
+              "dkvProjects"
+            ) || "[]"
+          ).filter(
+            project =>
+              project.id !== item.id
+          );
+
+
+        localStorage.setItem(
+          "dkvProjects",
+          JSON.stringify(
+            updated
+          )
+        );
+
+
+        renderProjects();
+
+      };
+
+
+    info.appendChild(
+      heading
+    );
+
+    info.appendChild(
+      desc
+    );
+
+    info.appendChild(
+      deleteButton
+    );
+
+
+    card.appendChild(
+      media
+    );
+
+    card.appendChild(
+      info
+    );
+
+
+    projects.appendChild(
+      card
+    );
+
+  }
+
+
+  updateEmpty();
+
+}
+
+
+/* =========================
+   CEK PROJECT
+========================= */
 
 function updateEmpty(){
 
-  if(projects.children.length > 0){
+  empty.style.display =
+    projects.children.length
+      ? "none"
+      : "block";
 
-    empty.style.display =
-      "none";
+}
 
-  }else{
 
-    empty.style.display =
-      "block";
+/* =========================
+   FOTO PROFIL
+========================= */
+
+document
+  .getElementById(
+    "profileInput"
+  )
+  .onchange =
+  function(event){
+
+    const file =
+      event.target.files[0];
+
+
+    if(!file){
+
+      return;
+
+    }
+
+
+    const reader =
+      new FileReader();
+
+
+    reader.onload =
+      function(){
+
+        localStorage.setItem(
+          "dkvProfilePhoto",
+          reader.result
+        );
+
+
+        document
+          .getElementById(
+            "profile"
+          )
+          .src =
+          reader.result;
+
+      };
+
+
+    reader.readAsDataURL(
+      file
+    );
+
+  };
+
+
+/* =========================
+   SIMPAN TEKS EDITABLE
+========================= */
+
+function saveText(){
+
+  const elements =
+    document.querySelectorAll(
+      '[contenteditable="true"]'
+    );
+
+
+  const data = [];
+
+
+  elements.forEach(
+    function(element,index){
+
+      data.push({
+
+        index:index,
+
+        html:element.innerHTML
+
+      });
+
+    }
+  );
+
+
+  localStorage.setItem(
+    "dkvEditableText",
+    JSON.stringify(data)
+  );
+
+}
+
+
+/* LOAD TEKS */
+
+function loadText(){
+
+  try{
+
+    const saved =
+      JSON.parse(
+        localStorage.getItem(
+          "dkvEditableText"
+        ) || "[]"
+      );
+
+
+    const elements =
+      document.querySelectorAll(
+        '[contenteditable="true"]'
+      );
+
+
+    saved.forEach(
+      function(item){
+
+        if(elements[item.index]){
+
+          elements[item.index]
+            .innerHTML =
+            item.html;
+
+        }
+
+      }
+    );
+
+  }catch(error){
+
+    console.log(error);
 
   }
 
 }
 
 
-/* GANTI FOTO PROFIL */
+/* PASANG EVENT EDIT */
 
 document
-  .getElementById("profileInput")
-  .onchange = function(event){
+  .querySelectorAll(
+    '[contenteditable="true"]'
+  )
+  .forEach(
+    function(element){
 
-    const file =
-      event.target.files[0];
+      element.addEventListener(
+        "input",
+        saveText
+      );
 
-    if(file){
+      element.addEventListener(
+        "blur",
+        saveText
+      );
+
+    }
+  );
+
+
+/* =========================
+   JALANKAN WEBSITE
+========================= */
+
+(async function(){
+
+  try{
+
+    await openDB();
+
+
+    const savedPhoto =
+      localStorage.getItem(
+        "dkvProfilePhoto"
+      );
+
+
+    if(savedPhoto){
 
       document
-        .getElementById("profile")
+        .getElementById(
+          "profile"
+        )
         .src =
-        URL.createObjectURL(file);
+        savedPhoto;
 
     }
 
-  };
+
+    loadText();
 
 
-/* JALANKAN SAAT WEBSITE DIBUKA */
+    await renderProjects();
 
-updateEmpty();
+  }catch(error){
+
+    console.error(
+      "Gagal memuat database:",
+      error
+    );
+
+    loadText();
+
+    updateEmpty();
+
+  }
+
+})();
 
 </script>
 
 </body>
-</html>
+  </html>
+
+  
+        
